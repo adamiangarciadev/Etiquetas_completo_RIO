@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Generador de Etiquetas</title>
+  <style>
+    :root {
+      --primary: #2a7de1;
+      --light: #f9f9f9;
+      --gray: #ccc;
+      --border: #e0e0e0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--light);
+      padding: 40px 20px;
+    }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      max-width: 600px;
+      margin: auto;
+    }
+    h1 {
+      font-size: 22px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 15px;
+      display: block;
+      color: #444;
+    }
+    select, input[type="text"], textarea {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 16px;
+      margin-top: 5px;
+      border: 1px solid var(--gray);
+      border-radius: 8px;
+      box-sizing: border-box;
+      background: #fff;
+    }
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      line-height: 1.3;
+    }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #1a5fb4;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 15px 0;
+    }
+    li {
+      background: #f0f0f0;
+      margin-bottom: 5px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+    small.muted { color:#667085; display:block; margin-top:6px; }
+    @media (max-width: 600px) {
+      body { padding: 20px 10px; }
+      h1 { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Generador de Etiquetas</h1>
+
+    <label for="sucursal">Sucursal que necesita las etiquetas:</label>
+    <select id="sucursal">
+      <option value="AVELLANEDA 2">AVELLANEDA 2</option>
+      <option value="NAZCA">NAZCA</option>
+      <option value="LAMARCA">LAMARCA</option>
+      <option value="DEPOSITO">DEPOSITO</option>
+      <option value="CORRIENTES 2">CORRIENTES 2</option>
+      <option value="CORRIENTES 1">CORRIENTES 1</option>
+      <option value="MORENO">MORENO</option>
+      <option value="QUILMES">QUILMES</option>
+      <option value="WEB">WEB</option>
+    </select>
+
+    <label for="busquedaArticulo">Buscar artículo:</label>
+    <input type="text" id="busquedaArticulo" placeholder="Ej: 401 o 29-4" />
+
+    <label for="articulo">Artículo:</label>
+    <select id="articulo"><option value="">Cargando...</option></select>
+
+    <label for="color">Color:</label>
+    <select id="color" disabled><option value="">Seleccionar artículo</option></select>
+
+    <label for="talle">Talle:</label>
+    <select id="talle" disabled><option value="">Seleccionar color</option></select>
+
+    <button id="agregar">Agregar a la lista</button>
+
+    <h3>Códigos agregados:</h3>
+    <ul id="lista"></ul>
+
+    <button id="descargar">Descargar TXT</button>
+
+    <!-- ===================== -->
+    <!-- Sección BAJAS Manual -->
+    <!-- ===================== -->
+    <h3 style="margin-top:28px">Bajas de productos</h3>
+    <label for="bajasInput">Pegá acá los códigos a dar de baja</label>
+    <textarea id="bajasInput" placeholder="Ejemplo:
+7791234567890
+7791234567891
+..."></textarea>
+    <small class="muted" id="bajasHint">0 códigos detectados. Acepta separadores por salto de línea, espacio, coma o punto y coma.</small>
+    <button id="descargarBajas">Descargar TXT de BAJA</button>
+  </div>
+
+  <script>
+    let registros = [];
+    let lista = [];
+
+    // Carga de equivalencias
+    fetch('equivalencias.csv')
+      .then(response => response.text())
+      .then(text => {
+        const lines = text.split('\n');
+        registros = lines.slice(1).map(line => {
+          const cols = line.split(';').map(c => c.replace(/"/g, '').trim());
+          return {
+            codigo: cols[0],
+            articulo: cols[1],
+            color: cols[2],
+            talle: cols[3]
+          };
+        }).filter(r => r.codigo && r.articulo && r.color && r.talle);
+
+        const articulos = [...new Set(registros.map(r => r.articulo))];
+        const artSelect = document.getElementById('articulo');
+        artSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        articulos.forEach(art => {
+          const opt = document.createElement('option');
+          opt.value = art;
+          opt.textContent = art;
+          artSelect.appendChild(opt);
+        });
+      });
+
+    // Buscador por texto
+    document.getElementById('busquedaArticulo').addEventListener('input', function () {
+      const filtro = this.value.toLowerCase();
+      const artSelect = document.getElementById('articulo');
+      const articulosUnicos = [...new Set(registros.map(r => r.articulo))];
+
+      artSelect.innerHTML = '<option value="">Seleccionar...</option>';
+      articulosUnicos
+        .filter(art => art.toLowerCase().includes(filtro))
+        .forEach(art => {
+          const opt = document.createElement('option');
+          opt.value = art;
+          opt.textContent = art;
+          artSelect.appendChild(opt);
+        });
+
+      document.getElementById('color').innerHTML = '<option value="">Seleccionar artículo</option>';
+      document.getElementById('color').disabled = true;
+      document.getElementById('talle').innerHTML = '<option value="">Seleccionar color</option>';
+      document.getElementById('talle').disabled = true;
+    });
+
+    // Cambio de artículo -> carga colores
+    document.getElementById('articulo').addEventListener('change', function() {
+      const art = this.value;
+      const colores = [...new Set(registros.filter(r => r.articulo === art).map(r => r.color))];
+      const colorSelect = document.getElementById('color');
+      colorSelect.innerHTML = '<option value="">Seleccionar...</option>';
+      colores.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        colorSelect.appendChild(opt);
+      });
+      colorSelect.disabled = false;
+
+      const talleSelect = document.getElementById('talle');
+      talleSelect.innerHTML = '<option value="">Seleccionar color</option>';
+      talleSelect.disabled = true;
+    });
+
+    // Cambio de color -> carga talles
+    document.getElementById('color').addEventListener('change', function() {
+      const art = document.getElementById('articulo').value;
+      const color = this.value;
+      const talles = [...new Set(registros.filter(r => r.articulo === art && r.color === color).map(r => r.talle))];
+      const talleSelect = document.getElementById('talle');
+      talleSelect.innerHTML = '<option value="">Seleccionar...</option>';
+      talles.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        talleSelect.appendChild(opt);
+      });
+      talleSelect.disabled = false;
+    });
+
+    // Agregar a la lista (etiquetas)
+    document.getElementById('agregar').addEventListener('click', function() {
+      const art = document.getElementById('articulo').value;
+      const color = document.getElementById('color').value;
+      const talle = document.getElementById('talle').value;
+      const resultado = registros.find(r => r.articulo === art && r.color === color && r.talle === talle);
+      if (resultado) {
+        lista.push(resultado.codigo);
+        const li = document.createElement('li');
+        li.textContent = resultado.codigo;
+        document.getElementById('lista').appendChild(li);
+      } else {
+        alert('No se encontró el código para esa combinación');
+      }
+    });
+
+    // Descargar TXT (etiquetas)
+    document.getElementById('descargar').addEventListener('click', function() {
+      if (lista.length === 0) return alert('No hay códigos agregados');
+      const contenido = lista.join('\n');
+      descargarComoTXT(contenido, /*prefijo*/'ETIQUETAS');
+    });
+
+    // ====== BAJAS: contador dinámico ======
+    const bajasInput = document.getElementById('bajasInput');
+    const bajasHint = document.getElementById('bajasHint');
+
+    function parsearBajas(raw) {
+      // Acepta separadores: salto de línea, coma, punto y coma, tab, espacio múltiple
+      const tokens = raw.split(/[\n,;\t ]+/).map(t => t.trim()).filter(Boolean);
+      // Dedup conservando orden
+      const vistos = new Set();
+      const unicos = [];
+      for (const t of tokens) {
+        if (!vistos.has(t)) { vistos.add(t); unicos.push(t); }
+      }
+      return unicos;
+    }
+
+    bajasInput.addEventListener('input', () => {
+      const items = parsearBajas(bajasInput.value);
+      bajasHint.textContent = `${items.length} códigos detectados. Acepta separadores por salto de línea, espacio, coma o punto y coma.`;
+    });
+
+    // Descargar TXT de BAJA
+    document.getElementById('descargarBajas').addEventListener('click', function() {
+      const items = parsearBajas(bajasInput.value);
+      if (items.length === 0) return alert('No hay códigos en BAJAS');
+      const contenido = items.join('\n');
+      descargarComoTXT(contenido, /*prefijo*/'BAJAS');
+    });
+
+    // Utilidad común para descargar
+    function descargarComoTXT(contenido, prefijo) {
+      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const sucursal = (document.getElementById('sucursal').value || 'SIN_NOMBRE').replace(/\s+/g, "_");
+      const fecha = new Date().toISOString().split('T')[0];
+      a.download = `${prefijo}_PARA_${sucursal}_${fecha}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }
+  </script>
+</body>
+</html>
